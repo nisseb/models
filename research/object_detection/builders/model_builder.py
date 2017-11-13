@@ -36,6 +36,8 @@ from object_detection.models.embedded_ssd_mobilenet_v1_feature_extractor import 
 from object_detection.models.ssd_inception_v2_feature_extractor import SSDInceptionV2FeatureExtractor
 from object_detection.models.ssd_inception_v3_feature_extractor import SSDInceptionV3FeatureExtractor
 from object_detection.models.ssd_mobilenet_v1_feature_extractor import SSDMobileNetV1FeatureExtractor
+from object_detection.models.ssd_nasnet_mobile_feature_extractor import SSDNasNetMobileFeatureExtractor
+from object_detection.models.ssd_nasnet_large_feature_extractor import SSDNasNetLargeFeatureExtractor
 from object_detection.protos import model_pb2
 
 # A map of names to SSD feature extractors.
@@ -44,6 +46,8 @@ SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
     'ssd_inception_v3': SSDInceptionV3FeatureExtractor,
     'ssd_mobilenet_v1': SSDMobileNetV1FeatureExtractor,
     'embedded_ssd_mobilenet_v1': EmbeddedSSDMobileNetV1FeatureExtractor,
+    'ssd_nasnet_mobile': SSDNasNetMobileFeatureExtractor,
+    'ssd_nasnet_large': SSDNasNetLargeFeatureExtractor,
 }
 
 # A map of names to Faster R-CNN feature extractors.
