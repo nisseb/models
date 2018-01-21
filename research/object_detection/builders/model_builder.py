@@ -28,6 +28,7 @@ from object_detection.meta_architectures import faster_rcnn_meta_arch
 from object_detection.meta_architectures import rfcn_meta_arch
 from object_detection.meta_architectures import ssd_meta_arch
 from object_detection.models import faster_rcnn_inception_resnet_v2_feature_extractor as frcnn_inc_res
+from object_detection.models import faster_rcnn_mobilenet_v1_feature_extractor as frcnn_mob_v1
 from object_detection.models import faster_rcnn_inception_v2_feature_extractor as frcnn_inc_v2
 from object_detection.models import faster_rcnn_nas_mobile_feature_extractor as frcnn_nas_mobile
 from object_detection.models import faster_rcnn_nas_large_feature_extractor as frcnn_nas_large
@@ -52,6 +53,8 @@ SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
 
 # A map of names to Faster R-CNN feature extractors.
 FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP = {
+    'faster_rcnn_mobilenet_v1':
+    frcnn_mob_v1.FasterRCNNMobilenetV1FeatureExtractor,
     'faster_rcnn_nas_mobile':
     frcnn_nas_mobile.FasterRCNNNASFeatureExtractor,
     'faster_rcnn_nas_large':
@@ -198,6 +201,7 @@ def _build_faster_rcnn_feature_extractor(
     ValueError: On invalid feature extractor type.
   """
   feature_type = feature_extractor_config.type
+  depth_multiplier = feature_extractor_config.depth_multiplier
   first_stage_features_stride = (
       feature_extractor_config.first_stage_features_stride)
   batch_norm_trainable = feature_extractor_config.batch_norm_trainable
@@ -207,7 +211,16 @@ def _build_faster_rcnn_feature_extractor(
         feature_type))
   feature_extractor_class = FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP[
       feature_type]
-  return feature_extractor_class(
+
+  if (feature_type == 'faster_rcnn_mobilenet_v1' or
+      feature_type == 'faster_rcnn_inception_v2'):
+    print('using depth_multiplier', depth_multiplier)
+    raw_input()
+    return feature_extractor_class(
+      is_training, first_stage_features_stride,
+      batch_norm_trainable, reuse_weights, depth_multiplier=depth_multiplier)
+  else:
+    return feature_extractor_class(
       is_training, first_stage_features_stride,
       batch_norm_trainable, reuse_weights)
 
