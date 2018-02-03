@@ -409,11 +409,30 @@ class ObjectDetectionEvaluation(object):
     self.scores_per_class = [[] for _ in range(self.num_class)]
     self.tp_fp_labels_per_class = [[] for _ in range(self.num_class)]
     self.num_images_correctly_detected_per_class = np.zeros(self.num_class)
+    
     self.average_precision_per_class = np.empty(self.num_class, dtype=float)
     self.average_precision_per_class.fill(np.nan)
     self.precisions_per_class = []
     self.recalls_per_class = []
     self.corloc_per_class = np.ones(self.num_class, dtype=float)
+
+    self.iou_list = [.5, .55, .6, .65, .7, .75, .8, .85, .9, .95]
+    self.scores_per_class_per_iou = \
+      [ [[] for _ in range(self.num_class)] for _ in range(len(self.iou_list)) ]
+    self.tp_fp_labels_per_class_per_iou = \
+      [ [[] for _ in range(self.num_class)] for _ in range(len(self.iou_list)) ]
+    self.num_images_correctly_detected_per_class_per_iou = \
+      [np.zeros(self.num_class) for _ in range(len(self.iou_list)) ]
+    self.average_precision_per_class_per_iou = \
+      [np.empty(self.num_class, dtype=float) for _ in range(len(self.iou_list))] 
+    for average_precision_per_class in self.average_precision_per_class_per_iou:
+      average_precision_per_class.fill(np.nan)           
+    self.precisions_per_class_per_iou = \
+      [[] for _ in range(len(self.iou_list))] 
+    self.recalls_per_class_per_iou = \
+      [[] for _ in range(len(self.iou_list))] 
+    self.corloc_per_class_per_iou = \
+      [np.ones(self.num_class, dtype=float) for _ in range(len(self.iou_list))]
 
     self.use_weighted_mean_ap = use_weighted_mean_ap
 
@@ -426,6 +445,23 @@ class ObjectDetectionEvaluation(object):
     self.precisions_per_class = []
     self.recalls_per_class = []
     self.corloc_per_class = np.ones(self.num_class, dtype=float)
+
+    self.scores_per_class_per_iou = \
+      [ [[] for _ in range(self.num_class)] for _ in range(len(self.iou_list)) ]
+    self.tp_fp_labels_per_class_per_iou = \
+      [ [[] for _ in range(self.num_class)] for _ in range(len(self.iou_list)) ]
+    self.num_images_correctly_detected_per_class_per_iou = \
+      [np.zeros(self.num_class) for _ in range(len(self.iou_list)) ]
+    self.average_precision_per_class_per_iou = \
+      [np.empty(self.num_class, dtype=float) for _ in range(len(self.iou_list))] 
+    for average_precision_per_class in self.average_precision_per_class_per_iou:
+      average_precision_per_class.fill(np.nan)           
+    self.precisions_per_class_per_iou = \
+      [[] for _ in range(len(self.iou_list))] 
+    self.recalls_per_class_per_iou = \
+      [[] for _ in range(len(self.iou_list))] 
+    self.corloc_per_class_per_iou = \
+      [np.ones(self.num_class, dtype=float) for _ in range(len(self.iou_list))]
 
   def add_single_ground_truth_image_info(self,
                                          image_key,
@@ -523,12 +559,39 @@ class ObjectDetectionEvaluation(object):
             groundtruth_boxes, groundtruth_class_labels,
             groundtruth_is_difficult_list, groundtruth_is_group_of_list))
 
+    sc_list = []
+    tfl_list = []
+    icc_list = []
+    prev_iou = self.per_image_eval.matching_iou_threshold
+    for ii in range(len(self.iou_list)):
+      self.per_image_eval.matching_iou_threshold = self.iou_list[ii]
+      sc, tfl, icc = (
+        self.per_image_eval.compute_object_detection_metrics(
+            detected_boxes, detected_scores, detected_class_labels,
+            groundtruth_boxes, groundtruth_class_labels,
+            groundtruth_is_difficult_list, groundtruth_is_group_of_list))
+      sc_list.append(sc)
+      tfl_list.append(tfl)
+      icc_list.append(icc)
+    self.per_image_eval.matching_iou_threshold = prev_iou
+      
     for i in range(self.num_class):
       if scores[i].shape[0] > 0:
         self.scores_per_class[i].append(scores[i])
         self.tp_fp_labels_per_class[i].append(tp_fp_labels[i])
     (self.num_images_correctly_detected_per_class
     ) += is_class_correctly_detected_in_image
+
+    for ii in range(len(self.iou_list)):
+      scores = sc_list[ii]
+      tp_fp_labels = tfl_list[ii]
+      is_class_correctly_detected_in_image = icc[ii]
+      for i in range(self.num_class):
+        if scores[i].shape[0] > 0:
+          self.scores_per_class_per_iou[ii][i].append(scores[i])
+          self.tp_fp_labels_per_class_per_iou[ii][i].append(tp_fp_labels[i])
+      (self.num_images_correctly_detected_per_class_per_iou[ii]
+      ) += is_class_correctly_detected_in_image
 
   def _update_ground_truth_statistics(self, groundtruth_class_labels,
                                       groundtruth_is_difficult_list,
@@ -593,23 +656,56 @@ class ObjectDetectionEvaluation(object):
         all_scores = np.append(all_scores, scores)
         all_tp_fp_labels = np.append(all_tp_fp_labels, tp_fp_labels)
       precision, recall = metrics.compute_precision_recall(
-          scores, tp_fp_labels, self.num_gt_instances_per_class[class_index])
+        scores, tp_fp_labels, self.num_gt_instances_per_class[class_index])
       self.precisions_per_class.append(precision)
       self.recalls_per_class.append(recall)
       average_precision = metrics.compute_average_precision(precision, recall)
       self.average_precision_per_class[class_index] = average_precision
 
+    average_precision_per_iou = []
+    for ii in range(len(self.iou_list)):
+      for class_index in range(self.num_class):
+        if self.num_gt_instances_per_class[class_index] == 0:
+          continue
+        if not self.scores_per_class_per_iou[ii][class_index]:
+          scores = np.array([], dtype=float)
+          tp_fp_labels = np.array([], dtype=bool)
+        else:
+          scores = np.concatenate(self.scores_per_class_per_iou[ii][class_index])
+          tp_fp_labels = np.concatenate(self.tp_fp_labels_per_class_per_iou[ii][class_index])
+        #if self.use_weighted_mean_ap:
+        #  all_scores = np.append(all_scores, scores)
+        #  all_tp_fp_labels = np.append(all_tp_fp_labels, tp_fp_labels)
+        precision, recall = metrics.compute_precision_recall(
+          scores, tp_fp_labels, self.num_gt_instances_per_class[class_index])
+        self.precisions_per_class_per_iou[ii].append(precision)
+        self.recalls_per_class_per_iou[ii].append(recall)
+        average_precision = metrics.compute_average_precision(precision, recall)
+        self.average_precision_per_class_per_iou[ii][class_index] = average_precision
+        
+          
     self.corloc_per_class = metrics.compute_cor_loc(
-        self.num_gt_imgs_per_class,
-        self.num_images_correctly_detected_per_class)
+      self.num_gt_imgs_per_class,
+      self.num_images_correctly_detected_per_class)
 
     if self.use_weighted_mean_ap:
       num_gt_instances = np.sum(self.num_gt_instances_per_class)
       precision, recall = metrics.compute_precision_recall(
-          all_scores, all_tp_fp_labels, num_gt_instances)
+        all_scores, all_tp_fp_labels, num_gt_instances)
       mean_ap = metrics.compute_average_precision(precision, recall)
     else:
       mean_ap = np.nanmean(self.average_precision_per_class)
+
+    mean_ap_per_iou = []
+    for ii in range(len(self.iou_list)):
+      mean_ap_per_iou.append(np.nanmean(self.average_precision_per_class_per_iou[ii]))
+
+    print('Mean AP: %.3f' % mean_ap)
+    for ii in range(len(self.iou_list)):
+      print('Mean AP @ IoU %.2f: %.3f' % (self.iou_list[ii], mean_ap_per_iou[ii])) 
+    print('Mean AP @ IoU[0.5:0.05:0.95]: %.3f' % np.nanmean(np.asarray(mean_ap_per_iou)))
+    raw_input()
+      
     mean_corloc = np.nanmean(self.corloc_per_class)
     return ObjectDetectionEvalMetrics(
         self.average_precision_per_class, mean_ap, self.precisions_per_class,
