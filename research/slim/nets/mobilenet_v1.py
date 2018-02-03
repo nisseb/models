@@ -141,6 +141,7 @@ _CONV_DEFS = [
 
 def mobilenet_v1_base(inputs,
                       final_endpoint='Conv2d_13_pointwise',
+                      start_enum=0,
                       min_depth=8,
                       depth_multiplier=1.0,
                       conv_defs=None,
@@ -185,7 +186,7 @@ def mobilenet_v1_base(inputs,
   """
   depth = lambda d: max(int(d * depth_multiplier), min_depth)
   end_points = {}
-
+  
   # Used to find thinned depths for each layer.
   if depth_multiplier <= 0:
     raise ValueError('depth_multiplier is not greater than zero.')
@@ -210,7 +211,7 @@ def mobilenet_v1_base(inputs,
 
       net = inputs
       for i, conv_def in enumerate(conv_defs):
-        end_point_base = 'Conv2d_%d' % i
+        end_point_base = 'Conv2d_%d' % (i+start_enum)
 
         if output_stride is not None and current_stride == output_stride:
           # If we have reached the target output_stride, then we need to employ
@@ -226,6 +227,7 @@ def mobilenet_v1_base(inputs,
 
         if isinstance(conv_def, Conv):
           end_point = end_point_base
+          
           net = slim.conv2d(net, depth(conv_def.depth), conv_def.kernel,
                             stride=conv_def.stride,
                             normalizer_fn=slim.batch_norm,
@@ -236,7 +238,6 @@ def mobilenet_v1_base(inputs,
 
         elif isinstance(conv_def, DepthSepConv):
           end_point = end_point_base + '_depthwise'
-
           # By passing filters=None
           # separable_conv2d produces only a depthwise convolution layer
           net = slim.separable_conv2d(net, None, conv_def.kernel,
@@ -251,7 +252,7 @@ def mobilenet_v1_base(inputs,
             return net, end_points
 
           end_point = end_point_base + '_pointwise'
-
+          
           net = slim.conv2d(net, depth(conv_def.depth), [1, 1],
                             stride=1,
                             normalizer_fn=slim.batch_norm,
@@ -262,7 +263,7 @@ def mobilenet_v1_base(inputs,
             return net, end_points
         else:
           raise ValueError('Unknown convolution type %s for layer %d'
-                           % (conv_def.ltype, i))
+                           % (conv_def.ltype, i+start_enum))
   raise ValueError('Unknown final endpoint %s' % final_endpoint)
 
 

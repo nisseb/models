@@ -28,13 +28,17 @@ from object_detection.meta_architectures import faster_rcnn_meta_arch
 from object_detection.meta_architectures import rfcn_meta_arch
 from object_detection.meta_architectures import ssd_meta_arch
 from object_detection.models import faster_rcnn_inception_resnet_v2_feature_extractor as frcnn_inc_res
+from object_detection.models import faster_rcnn_mobilenet_v1_feature_extractor as frcnn_mob_v1
 from object_detection.models import faster_rcnn_inception_v2_feature_extractor as frcnn_inc_v2
-from object_detection.models import faster_rcnn_nas_feature_extractor as frcnn_nas
+from object_detection.models import faster_rcnn_nas_mobile_feature_extractor as frcnn_nas_mobile
+from object_detection.models import faster_rcnn_nas_large_feature_extractor as frcnn_nas_large
 from object_detection.models import faster_rcnn_resnet_v1_feature_extractor as frcnn_resnet_v1
 from object_detection.models.embedded_ssd_mobilenet_v1_feature_extractor import EmbeddedSSDMobileNetV1FeatureExtractor
 from object_detection.models.ssd_inception_v2_feature_extractor import SSDInceptionV2FeatureExtractor
 from object_detection.models.ssd_inception_v3_feature_extractor import SSDInceptionV3FeatureExtractor
 from object_detection.models.ssd_mobilenet_v1_feature_extractor import SSDMobileNetV1FeatureExtractor
+from object_detection.models.ssd_nasnet_mobile_feature_extractor import SSDNasNetMobileFeatureExtractor
+from object_detection.models.ssd_nasnet_large_feature_extractor import SSDNasNetLargeFeatureExtractor
 from object_detection.protos import model_pb2
 
 # A map of names to SSD feature extractors.
@@ -43,12 +47,18 @@ SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
     'ssd_inception_v3': SSDInceptionV3FeatureExtractor,
     'ssd_mobilenet_v1': SSDMobileNetV1FeatureExtractor,
     'embedded_ssd_mobilenet_v1': EmbeddedSSDMobileNetV1FeatureExtractor,
+    'ssd_nasnet_mobile': SSDNasNetMobileFeatureExtractor,
+    'ssd_nasnet_large': SSDNasNetLargeFeatureExtractor,
 }
 
 # A map of names to Faster R-CNN feature extractors.
 FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP = {
-    'faster_rcnn_nas':
-    frcnn_nas.FasterRCNNNASFeatureExtractor,
+    'faster_rcnn_mobilenet_v1':
+    frcnn_mob_v1.FasterRCNNMobilenetV1FeatureExtractor,
+    'faster_rcnn_nas_mobile':
+    frcnn_nas_mobile.FasterRCNNNASFeatureExtractor,
+    'faster_rcnn_nas_large':
+    frcnn_nas_large.FasterRCNNNASFeatureExtractor,
     'faster_rcnn_inception_resnet_v2':
     frcnn_inc_res.FasterRCNNInceptionResnetV2FeatureExtractor,
     'faster_rcnn_inception_v2':
@@ -191,6 +201,7 @@ def _build_faster_rcnn_feature_extractor(
     ValueError: On invalid feature extractor type.
   """
   feature_type = feature_extractor_config.type
+  depth_multiplier = feature_extractor_config.depth_multiplier
   first_stage_features_stride = (
       feature_extractor_config.first_stage_features_stride)
   batch_norm_trainable = feature_extractor_config.batch_norm_trainable
@@ -200,7 +211,16 @@ def _build_faster_rcnn_feature_extractor(
         feature_type))
   feature_extractor_class = FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP[
       feature_type]
-  return feature_extractor_class(
+
+  if (feature_type == 'faster_rcnn_mobilenet_v1' or
+      feature_type == 'faster_rcnn_inception_v2'):
+    print('using depth_multiplier', depth_multiplier)
+    raw_input()
+    return feature_extractor_class(
+      is_training, first_stage_features_stride,
+      batch_norm_trainable, reuse_weights, depth_multiplier=depth_multiplier)
+  else:
+    return feature_extractor_class(
       is_training, first_stage_features_stride,
       batch_norm_trainable, reuse_weights)
 
